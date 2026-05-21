@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医生工作台 - 血糖监测系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #f4f7fa;
+      font-family: "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    .top-header {
+      background: linear-gradient(90deg, #165DFF, #4080FF);
+      color: #fff;
+      padding: 16px 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .user-info {
+      font-size: 16px;
+    }
+
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      background-color: #4080FF;
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 18px;
+    }
+
+    .nav-pills .nav-link {
+      color: #444;
+      font-weight: 500;
+      border-radius: 8px;
+      margin-right: 8px;
+      padding: 10px 18px;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #4080FF;
+      color: #fff;
+    }
+
+    .chart-box {
+      width: 100%;
+      height: 320px;
+    }
+
+    .stat-card {
+      border-radius: 10px;
+      padding: 20px;
+      color: #fff;
+    }
+
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+<div class="top-header d-flex justify-content-between align-items-center">
+  <div class="header-title"><i class="fa fa-user-md me-2"></i>血糖监测管理系统 · 医生工作台</div>
+  <div class="user-info"><span class="me-4">当前角色：<span id="currentRole">医生</span></span><span
+          id="current-time"></span></div>
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      <i class="fa fa-cog me-1"></i>设置
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="javascript:logout()"><i class="fa fa-sign-out me-1"></i>退出登录</a></li>
+    </ul>
+  </div>
+</div>
+
+<div class="container-fluid px-4 py-4">
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill"
+                                 data-bs-target="#patientList">患者列表</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#bloodView">血糖查看</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#treatManage">诊疗管理</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#treatAdd">控糖方案</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#followPlan">随访计划&时间轴</button></li>
+  </ul>
+
+  <div class="tab-content">
+    <!-- ========== 【完善后】医生端患者列表 ========== -->
+    <div class="tab-pane fade show active" id="patientList">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>接诊患者列表</span>
+          <!-- 搜索框：复用管理员端搜索接口 -->
+          <div class="input-group w-50">
+            <input class="form-control" id="searchPatient" placeholder="输入患者姓名搜索">
+            <button class="btn btn-light" onclick="searchPatient()">搜索</button>
+            <button class="btn btn-light ms-1" onclick="resetPatientList()">重置</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered text-center align-middle">
+              <thead>
+              <tr>
+                <th>患者ID</th>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>年龄</th>
+                <th>科室</th>
+                <th>操作</th>
+              </tr>
+              </thead>
+              <tbody id="doctorPatientTable">
+              <!-- 自动加载数据库患者数据 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 血糖查看 -->
+    <div class="tab-pane fade" id="bloodView">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>患者血糖历史数据</span>
+          <select class="form-select w-25" id="doctorBloodPatient" onchange="loadPatientBloodData()">
+            <option value="">请选择患者</option>
+          </select>
+        </div>
+        <div class="card-body">
+          <div id="bloodChart" class="chart-box mb-4"></div>
+          <div class="row g-4">
+            <div class="col-md-3">
+              <div class="stat-card bg-primary text-center">
+                <h5>平均空腹血糖</h5>
+                <h3 id="avgEmpty">0.0</h3>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card bg-danger text-center">
+                <h5>平均餐后血糖</h5>
+                <h3 id="avgAfter">0.0</h3>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card bg-success text-center">
+                <h5>总监测次数</h5>
+                <h3 id="totalCount">0</h3>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card bg-warning text-center">
+                <h5>血糖异常次数</h5>
+                <h3 id="warnCount">0</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 诊疗管理 -->
+    <div class="tab-pane fade" id="treatManage">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>控糖诊疗记录管理</span>
+          <div class="d-flex gap-3 align-items-center">
+            <span>按患者筛选：</span>
+            <select class="form-select w-25" style="width: 220px !important;" id="treatPatientFilter" onchange="loadTreatList()">
+              <option value="">全部患者</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered text-center align-middle">
+              <thead>
+              <tr>
+                <th>诊疗ID</th>
+                <th>患者姓名</th>
+                <th>血糖值</th>
+                <th>诊断</th>
+                <th>治疗方案</th>
+                <th>诊疗日期</th>
+                <th>操作</th>
+              </tr>
+              </thead>
+              <tbody id="doctorTreatTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 控糖方案 -->
+    <div class="tab-pane fade" id="treatAdd">
+      <div class="card">
+        <div class="card-header">新增控糖方案</div>
+        <div class="card-body">
+          <form id="planForm" class="row g-4">
+            <div class="col-md-6">
+              <label>患者</label>
+              <select id="planPatientId" class="form-select" required>
+                <option value="">请选择患者</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label>控糖方案内容</label>
+              <textarea id="planContent" class="form-control" rows="5" required
+                        placeholder="请详细填写饮食、运动、用药、监测等控糖指导"></textarea>
+            </div>
+            <div class="col-12 text-center">
+              <button type="button" class="btn btn-primary px-5" onclick="savePlan()">提交保存</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 控糖方案列表 -->
+      <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>历史控糖方案</span>
+          <select class="form-select w-25" id="filterPlanPatient" onchange="loadPlanList()">
+            <option value="">全部患者</option>
+          </select>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover text-center">
+              <thead>
+              <tr>
+                <th>ID</th>
+                <th>患者</th>
+                <th>控糖方案</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+              </thead>
+              <tbody id="planTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 随访计划 -->
+    <!-- 随访计划 & 时间轴 -->
+    <div class="tab-pane fade" id="followPlan">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-calendar-plus-o me-2"></i>新增随访计划</div>
+            <div class="card-body">
+              <form id="followForm" class="row g-3">
+                <div class="col-12">
+                  <label>患者</label>
+                  <select id="followPatientId" class="form-select" required>
+                    <option value="">请选择患者</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label>随访类型</label>
+                  <select id="followType" class="form-select" required>
+                    <option>血糖监测随访</option>
+                    <option>用药指导随访</option>
+                    <option>饮食指导随访</option>
+                    <option>复查提醒随访</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label>随访日期</label>
+                  <input type="date" id="followDate" class="form-control" required>
+                </div>
+                <div class="col-12">
+                  <label>随访周期</label>
+                  <select id="followCycle" class="form-select" required>
+                    <option>每日</option>
+                    <option>每周</option>
+                    <option>每月</option>
+                    <option>每季度</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label>随访内容</label>
+                  <textarea id="followContent" class="form-control" rows="4" required placeholder="请填写详细的随访指导内容"></textarea>
+                </div>
+                <div class="col-12 text-center">
+                  <button type="button" class="btn btn-primary px-5" onclick="saveFollowPlan()">保存随访计划</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- 随访记录列表 -->
+          <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>随访记录</span>
+              <select class="form-select w-25" id="filterFollowPatient" onchange="loadFollowList()">
+                <option value="">全部患者</option>
+              </select>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                <table class="table table-sm table-bordered table-hover text-center">
+                  <thead>
+                  <tr>
+                    <th>患者姓名</th>
+                    <th>随访类型</th>
+                    <th>随访日期</th>
+                    <th>随访周期</th>
+                    <th>操作</th>
+                  </tr>
+                  </thead>
+                  <tbody id="followTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 患者健康时间轴 -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-line-chart me-2"></i>患者健康随访时间轴</div>
+            <div class="card-body">
+              <div id="timelineChart"  class="chart-box" style="width:100%;height:380px;" ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 随访执行详情弹窗 → 放在你页面任意位置（比如最底部） -->
+<div class="modal fade" id="viewExecuteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">随访执行详情</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="executeInfo"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let globalPatientList = [];
+  let bloodChart; // 全局血糖图表实例
+
+  // 页面一打开就加载全部患者
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAllPatientList();
+    initBloodChart();
+    loadTreatList();
+    loadPlanList();  // 就是这一行！页面打开自动加载控糖方案
+
+    // 新增随访相关初始化
+    loadFollowList();
+    // 时间轴
+    initTimelineChart();
+    refreshTimeline();
+  });
+
+  // 加载全部患者 —— 只认 Result 格式 { data: [] }
+  function loadAllPatientList() {
+    fetch("/api/patient/list")
+            .then(res => res.json())
+            .then(r => {
+              let list = r.data || [];
+              globalPatientList = list;
+              renderPatientTable(list);
+              syncPatientToAllSelect(list);
+            })
+  }
+
+  // 搜索功能
+  function searchPatient() {
+    let keyword = document.getElementById("searchPatient").value.trim();
+    if (!keyword) {
+      renderPatientTable(globalPatientList);
+      return;
+    }
+    fetch("/api/patient/search?name=" + keyword)
+            .then(res => res.json())
+            .then(r => {
+              let searchList = r.data || [];
+              renderPatientTable(searchList);
+            });
+  }
+
+  // 重置功能
+  function resetPatientList() {
+    document.getElementById("searchPatient").value = "";
+    renderPatientTable(globalPatientList);
+  }
+
+  // 渲染患者表格
+  function renderPatientTable(list) {
+    let html = "";
+    if (list.length === 0) {
+      html = `<tr><td colspan='6'>暂无患者</td></tr>`;
+    } else {
+      list.forEach(item => {
+        html += `
+          <tr>
+            <td>${item.patientId}</td>
+            <td>${item.name}</td>
+            <td>${item.gender}</td>
+            <td>${item.age}</td>
+            <td>${item.dept}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="selectPatient('${item.patientId}')">
+                接诊查看
+              </button>
+            </td>
+          </tr>`;
+      });
+    }
+    document.getElementById("doctorPatientTable").innerHTML = html;
+  }
+
+  // 同步患者到所有下拉框（最终稳定版）
+  function syncPatientToAllSelect(list) {
+    let bloodSel = document.getElementById("doctorBloodPatient");
+    let treatSel = document.getElementById("doctorTreatPatient");
+    let followSel = document.getElementById("doctorFollowPatient");
+    let treatFilter = document.getElementById("treatPatientFilter");
+    let planFilter = document.getElementById("filterPlanPatient");
+    let planPatientSel = document.getElementById("planPatientId");
+
+    let opts = `<option value="">请选择患者</option>`;
+    let filterOpts = `<option value="">全部患者</option>`;
+    list.forEach(p => {
+      opts += `<option value="${p.patientId}">${p.name}</option>`;
+      filterOpts += `<option value="${p.patientId}">${p.name}</option>`;
+    });
+
+    // 强制逐个赋值，避免DOM加载时序问题
+    if(bloodSel) bloodSel.innerHTML = opts;
+    if(treatSel) treatSel.innerHTML = opts;
+    if(followSel) followSel.innerHTML = opts;
+    if(treatFilter) treatFilter.innerHTML = filterOpts; // 诊疗筛选下拉
+    if(planFilter) planFilter.innerHTML = filterOpts;
+    if(planPatientSel) planPatientSel.innerHTML = opts;
+
+    // 新增随访下拉框同步
+    let followPatient = document.getElementById("followPatientId");
+    let followFilter = document.getElementById("filterFollowPatient");
+    if(followPatient) followPatient.innerHTML = opts;
+    if(followFilter) followFilter.innerHTML = filterOpts;
+  }
+
+  // 接诊查看：选中患者，跳转血糖页面并加载数据
+  function selectPatient(pid) {
+    document.getElementById("doctorBloodPatient").value = pid;
+    loadPatientBloodData();
+    document.querySelector('button[data-bs-target="#bloodView"]').click();
+  }
+
+  // ======================
+  // 【新增】血糖图表核心功能
+  // ======================
+
+  // 切换到血糖标签页时，刷新图表大小
+  document.querySelector('[data-bs-target="#bloodView"]').addEventListener('shown.bs.tab', function () {
+    if(bloodChart) bloodChart.resize();
+  });
+
+  function initBloodChart() {
+    bloodChart = echarts.init(document.getElementById('bloodChart'));
+    bloodChart.setOption({
+      title: { text: '血糖变化趋势', left: 'center' },
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['空腹', '餐后'], bottom: 0 },
+      // 居中、左右留出均匀空白，大小适中
+      grid: {
+        left: '8%',
+        right: '8%',
+        top: '15%',
+        bottom: '15%',
+        containLabel: true
+      },
+      xAxis: { data: [] },
+      yAxis: { name: 'mmol/L' },
+      series: [
+        { name: '空腹', type: 'line', smooth: true, data: [] },
+        { name: '餐后', type: 'line', smooth: true, data: [] }
+      ]
+    });
+    window.addEventListener('resize', () => bloodChart.resize());
+  }
+
+  // 根据选中患者加载血糖数据、渲染图表、计算统计
+  function loadPatientBloodData() {
+    const patientId = document.getElementById("doctorBloodPatient").value;
+    if (!patientId) return;
+
+    fetch(`/api/blood/trend?patientId=${patientId}`)
+            .then(res => res.json())
+            .then(r => {
+              const bloodList = r.data || [];
+
+              // ======================
+              // 关键：按时间排序，显示这个患者自己的变化
+              // ======================
+              bloodList.sort((a, b) => {
+                return new Date(a.collectTime) - new Date(b.collectTime);
+              });
+
+              const timeArr = [];
+              const emptyArr = [];
+              const afterArr = [];
+              let sumEmpty = 0, cntEmpty = 0;
+              let sumAfter = 0, cntAfter = 0;
+              let warnCount = 0;
+
+              bloodList.forEach(item => {
+                timeArr.push(item.collectTime);
+                const val = Number(item.sugarVal);
+
+                if (item.timeType === "空腹") {
+                  emptyArr.push(val);
+                  afterArr.push(null);
+                  sumEmpty += val; cntEmpty++;
+                  if (val > 6.1) warnCount++;
+                } else {
+                  afterArr.push(val);
+                  emptyArr.push(null);
+                  sumAfter += val; cntAfter++;
+                  if (val > 7.8) warnCount++;
+                }
+              });
+
+              // 更新图表 → 只显示当前患者
+              bloodChart.setOption({
+                xAxis: { data: timeArr },
+                series: [
+                  { name: '空腹', data: emptyArr },
+                  { name: '餐后', data: afterArr }
+                ]
+              });
+
+              // 统计
+              document.getElementById("avgEmpty").innerText = cntEmpty ? (sumEmpty / cntEmpty).toFixed(1) : "0.0";
+              document.getElementById("avgAfter").innerText = cntAfter ? (sumAfter / cntAfter).toFixed(1) : "0.0";
+              document.getElementById("totalCount").innerText = bloodList.length;
+              document.getElementById("warnCount").innerText = warnCount;
+            });
+  }
+  // ======================
+  // 【优化版】诊疗管理模块（贴合医生实际使用）
+  // ======================
+  // 加载诊疗记录（支持按患者筛选）
+  function loadTreatList() {
+    const patientId = document.getElementById("treatPatientFilter").value;
+    let url = "/api/treat/list";
+    if(patientId) url += "?patientId=" + patientId;
+
+    fetch(url)
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              renderTreatTable(list);
+            })
+  }
+
+  // 渲染诊疗表格（时间最新的在最上面）
+  function renderTreatTable(list) {
+    const tbody = document.getElementById("doctorTreatTable");
+    let html = "";
+    if(list.length === 0) {
+      html = `<tr><td colspan="7">暂无诊疗记录</td></tr>`;
+    } else {
+      list.forEach(item => {
+        html += `
+      <tr>
+        <td>${item.id}</td>
+        <td>${item.patientName}</td>
+        <td>${item.bloodSugar}</td>
+        <td>${item.diagnosis}</td>
+        <td>${item.treatPlan}</td>
+        <td>${item.treatTime}</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="viewTreat(${item.id})">查看详情</button>
+        </td>
+      </tr>`;
+      })
+    }
+    tbody.innerHTML = html;
+  }
+
+  // 查看诊疗详情（弹窗/跳转，这里用alert模拟，可后续扩展）
+  function viewTreat(id) {
+    alert("查看诊疗ID："+id+" 的详细记录");
+  }
+
+  // ======================
+  // 控糖方案模块
+  // ======================
+  function loadPlanList() {
+    const patientId = document.getElementById("filterPlanPatient").value;
+    let url = "/api/plan/list";
+    if (patientId) url += "?patientId=" + patientId;
+
+    fetch(url)
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              let html = "";
+              if (list.length === 0) {
+                html = `<tr><td colspan="5">暂无控糖方案</td></tr>`;
+              } else {
+                list.forEach(item => {
+                  html += `
+          <tr>
+            <td>${item.id}</td>
+            <td>${item.patientName}</td>
+            <td style="white-space: pre-line; text-align:left;">${item.planContent}</td>
+            <td>${item.createTime}</td>
+            <td>
+              <button class="btn btn-sm btn-danger" onclick="deletePlan(${item.id})">删除</button>
+            </td>
+          </tr>`;
+                });
+              }
+              document.getElementById("planTableBody").innerHTML = html;
+            });
+  }
+
+  // 保存控糖方案
+  function savePlan() {
+    const patientId = document.getElementById("planPatientId").value;
+    const patientName = document.getElementById("planPatientId").options[document.getElementById("planPatientId").selectedIndex].text;
+    const planContent = document.getElementById("planContent").value;
+
+    if (!patientId || !planContent) {
+      alert("请填写完整信息");
+      return;
+    }
+
+    fetch("/api/plan/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        patientId: patientId,
+        patientName: patientName,
+        planContent: planContent
+      })
+    }).then(res => res.json())
+            .then(r => {
+              alert(r.msg);
+              document.getElementById("planForm").reset();
+              loadPlanList();
+            });
+  }
+
+  // 删除方案
+  function deletePlan(id) {
+    if (!confirm("确定删除？")) return;
+    fetch("/api/plan/delete?id=" + id)
+            .then(res => res.json())
+            .then(r => {
+              alert("删除成功");
+              loadPlanList();
+            });
+  }
+
+
+
+  // ==========================
+  // 随访计划模块（医生端，复用follow_up表）
+  // ==========================
+  // 加载随访列表
+  function loadFollowList() {
+    const patientId = document.getElementById("filterFollowPatient").value;
+    let url = "/api/follow/listAll";
+    if (patientId) url += "?patientId=" + patientId;
+
+    fetch(url)
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              let html = "";
+              if (list.length === 0) {
+                html = `<tr><td colspan="6">暂无随访计划</td></tr>`;
+              } else {
+                list.forEach(item => {
+                  // ========== 这里替换状态代码 ==========
+                  let today = new Date().toISOString().split("T")[0];
+                  let statusBadge = "";
+                  if (item.isExecute === 1) {
+                    statusBadge = '<span class="badge bg-success">✅ 已执行</span>';
+                  } else if (item.followDate < today) {
+                    statusBadge = '<span class="badge bg-secondary">⏳ 已过期</span>';
+                  } else {
+                    statusBadge = '<span class="badge bg-warning text-dark">📌 待执行</span>';
+                  }
+                  // ====================================
+
+                  html += `
+          <tr>
+            <td>${item.patientName}</td>
+            <td>${item.followType || '-'}</td>
+            <td>${item.followDate || '-'}</td>
+            <td>${item.followCycle || '-'}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="viewFollowDetail(${item.id})">查看执行</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteFollow(${item.id})">删除计划</button>
+            </td>
+          </tr>`;
+                });
+              }
+              document.getElementById("followTableBody").innerHTML = html;
+            });
+  }
+
+  // 保存随访计划
+  function saveFollowPlan() {
+    const patientId = document.getElementById("followPatientId").value;
+    const patientName = document.getElementById("followPatientId").options[document.getElementById("followPatientId").selectedIndex].text;
+    const followType = document.getElementById("followType").value;
+    const followDate = document.getElementById("followDate").value;
+    const followCycle = document.getElementById("followCycle").value;
+    const followContent = document.getElementById("followContent").value;
+
+    if (!patientId || !followDate || !followContent) {
+      alert("请填写完整的随访信息");
+      return;
+    }
+
+    fetch("/api/follow/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        patientId, patientName, followType, followDate, followCycle, followContent
+      })
+    }).then(res => res.json())
+            .then(r => {
+              if (r.code === 200) {
+                alert("随访计划保存成功");
+                loadFollowList();     // 刷新列表
+                refreshTimeline();    // 自动刷新时间轴 ✅
+                document.getElementById("followForm").reset();
+                loadFollowList();
+              } else {
+                alert(r.msg || "保存失败");
+              }
+            });
+
+  }
+
+  // 查看随访详情
+  // 查看随访详情（已修复：随访日期、数据查询、弹窗显示）
+  function viewFollowDetail(followId) {
+    // 先从列表里找到这条计划，直接拿日期（最简单最稳）
+    let followDate = "";
+    let rows = document.querySelectorAll("#followTableBody tr");
+    for (let row of rows) {
+      let btn = row.querySelector("button");
+      if (btn && btn.getAttribute("onclick").includes(followId)) {
+        let dateTd = row.querySelectorAll("td")[2];
+        followDate = dateTd.innerText;
+        break;
+      }
+    }
+
+    fetch("/api/follow/execute/record?followId=" + followId)
+            .then(res => {
+              if (!res.ok) throw new Error("服务器异常");
+              return res.json();
+            })
+            .then(r => {
+              let data = r.data;
+              let html = "";
+
+              if (!data) {
+                html = `
+          <div class="alert alert-warning text-center">
+            <h4>暂无执行记录</h4>
+            <p>该随访计划尚未执行</p>
+          </div>
+        `;
+              } else {
+                html = `
+        <table class="table table-bordered">
+          <tr>
+            <td width="150" class="bg-light"><strong>患者姓名</strong></td>
+            <td>${data.patientName || '-'}</td>
+          </tr>
+          <tr>
+            <td class="bg-light"><strong>随访类型</strong></td>
+            <td>${data.followType || '-'}</td>
+          </tr>
+          <tr>
+            <td class="bg-light"><strong>随访日期</strong></td>
+            <td>${followDate || '-'}</td>
+          </tr>
+          <tr>
+            <td class="bg-light"><strong>执行时间</strong></td>
+            <td>${data.executeTime || '-'}</td>
+          </tr>
+          <tr>
+            <td class="bg-light"><strong>健康事件记录</strong></td>
+            <td style="white-space: pre-line; min-height: 80px;">${data.healthEvent || '-'}</td>
+          </tr>
+        </table>
+        `;
+              }
+              document.getElementById("executeInfo").innerHTML = html;
+              new bootstrap.Modal(document.getElementById("viewExecuteModal")).show();
+            })
+            .catch(err => {
+              document.getElementById("executeInfo").innerHTML =
+                      `<div class="alert alert-danger">查询失败：${err.message}</div>`;
+              new bootstrap.Modal(document.getElementById("viewExecuteModal")).show();
+            });
+  }
+  // 删除随访计划
+  function deleteFollow(id) {
+    if (!confirm("确定要删除该随访计划吗？")) return;
+    fetch(`/api/follow/delete?id=${id}`)
+            .then(res => res.json())
+            .then(r => {
+              if (r.code === 200) {
+                alert("删除成功");
+                loadFollowList();     // 刷新列表
+                refreshTimeline();    // 自动刷新时间轴 ✅
+                loadFollowList();
+              } else {
+                alert(r.msg || "删除失败");
+              }
+            });
+  }
+
+  // ==========================
+  // 全新 随访时间轴
+  // ==========================
+  let timelineChart;
+
+  // 初始化图表
+  function initTimelineChart() {
+    const dom = document.getElementById("timelineChart");
+    timelineChart = echarts.init(dom);
+
+    // 强制触发一次 resize（最关键！解决刚进入不显示）
+    setTimeout(() => {
+      timelineChart.resize();
+    }, 100);
+  }
+
+  // 刷新时间轴（自动调用）
+  function refreshTimeline() {
+    fetch("/api/follow/list")
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+
+              // 自动获取随访类型
+              let typeList = [];
+              list.forEach(item => {
+                if (!typeList.includes(item.followType)) typeList.push(item.followType);
+              });
+
+              // 数据
+              const data = list.map(item => ({
+                name: item.patientName,
+                value: [item.followDate, item.followType],
+                content: item.followContent
+              }));
+
+              const option = {
+                tooltip: {
+                  trigger: "item",
+                  formatter: p => `
+患者：${p.data.name}<br>
+日期：${p.data.value[0]}<br>
+类型：${p.data.value[1]}<br>
+内容：${p.data.content}`
+                },
+                grid: {
+                  left: "5%",
+                  right: "5%",
+                  top: "10%",
+                  bottom: "15%",
+                  containLabel: true
+                },
+                xAxis: {
+                  type: "time",
+                  axisLabel: { rotate: 20, formatter: "{yyyy}-{MM}-{dd}" }
+                },
+                yAxis: {
+                  type: "category",
+                  data: typeList
+                },
+                series: [{
+                  type: "scatter",
+                  data: data,
+                  symbolSize: 28,
+                  itemStyle: { color: "#4080FF", shadowBlur: 10 }
+                }]
+              };
+
+              timelineChart.setOption(option, true);
+
+              // 强制刷新尺寸（解决不展开）
+              setTimeout(() => {
+                timelineChart.resize();
+              }, 100);
+            });
+  }
+
+  // 切换到随访标签时 → 强制刷新时间轴
+  // 👇 这是你最需要的！！！
+  document.querySelector('button[data-bs-target="#followPlan"]').addEventListener('click', () => {
+    setTimeout(() => {
+      timelineChart.resize();
+      refreshTimeline();
+    }, 200);
+  });
+  function logout() {
+    if(confirm("确定退出登录？")) {
+      // 跳转到登录页，按你实际登录页路径修改
+      location.href = "login.html";
+    }
+  }
+</script>
+</body>
+</html>

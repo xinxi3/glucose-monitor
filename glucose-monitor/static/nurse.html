@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>护士工作台 - 血糖监测系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #f4f7fa;
+      font-family: "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    .top-header {
+      background: linear-gradient(90deg, #00B42A, #36CFC9);
+      color: #fff;
+      padding: 16px 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .user-info {
+      font-size: 16px;
+    }
+
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      background-color: #00B42A;
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 18px;
+    }
+
+    .nav-pills .nav-link {
+      color: #444;
+      font-weight: 500;
+      border-radius: 8px;
+      margin-right: 8px;
+      padding: 10px 18px;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #00B42A;
+      color: #fff;
+    }
+
+    .chart-box {
+      width: 100%;
+      height: 320px;
+    }
+
+    .stat-card {
+      border-radius: 10px;
+      padding: 20px;
+      color: #fff;
+    }
+
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+<div class="top-header d-flex justify-content-between align-items-center">
+  <div class="header-title"><i class="fa fa-heartbeat me-2"></i>血糖监测管理系统 · 护士工作台</div>
+  <div class="user-info"><span class="me-4">当前角色：<span id="currentRole">护士</span></span><span
+          id="current-time"></span></div>
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      <i class="fa fa-cog me-1"></i>设置
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="javascript:logout()"><i class="fa fa-sign-out me-1"></i>退出登录</a></li>
+    </ul>
+  </div>
+</div>
+
+<div class="container-fluid px-4 py-4">
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill"
+                                 data-bs-target="#patientList">患者列表</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#bloodCollect">血糖录入</button>
+    </li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#bloodHistory">血糖历史</button>
+    </li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill"
+                                 data-bs-target="#followExecute" onclick="refreshFollowCharts()">随访执行&事件记录</button></li>
+  </ul>
+
+  <div class="tab-content">
+    <!-- 患者列表 -->
+    <div class="tab-pane fade show active" id="patientList">
+      <div class="card">
+        <div class="card-header">在院糖尿病患者</div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <div class="input-group">
+                <input type="text" class="form-control" placeholder="搜索患者姓名" id="searchPatient">
+                <button class="btn btn-primary" onclick="loadNursePatientList()">搜索</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered text-center align-middle">
+              <thead>
+              <tr>
+                <th>患者ID</th>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>年龄</th>
+                <th>科室</th>
+                <th>血糖风险</th>
+              </tr>
+              </thead>
+              <tbody id="nursePatientTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 血糖录入 -->
+    <div class="tab-pane fade" id="bloodCollect">
+      <div class="card">
+        <div class="card-header">录入患者血糖</div>
+        <div class="card-body">
+          <form id="bloodForm" class="row g-4">
+            <div class="col-md-4">
+              <label>患者</label>
+              <select id="nursePatientSelect" class="form-select" required>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label>采集时间</label>
+              <input id="collectTime" type="datetime-local" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label>测量时段</label>
+              <select id="timeType" class="form-select" required>
+                <option>空腹</option>
+                <option>餐后2h</option>
+                <option>随机</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label>血糖值 (mmol/L)</label>
+              <input id="sugarVal" type="number" step="0.01" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label>心率</label>
+              <input id="heartRate" type="number" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label>血压</label>
+              <input id="bloodPressure" type="text" class="form-control" placeholder="例：120/80">
+            </div>
+            <div class="col-12">
+              <label>症状/备注</label>
+              <textarea id="symptom" class="form-control" rows="3" placeholder="无则填无"></textarea>
+            </div>
+            <div class="col-12 text-center">
+              <button type="button" class="btn btn-success px-5" onclick="saveNurseBlood()">提交保存</button>
+              <button type="reset" class="btn btn-secondary px-5">清空重置</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 血糖历史 -->
+    <div class="tab-pane fade" id="bloodHistory">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>患者血糖历史趋势</span>
+          <select id="historyPatientSelect" class="form-select w-25" onchange="loadNurseBloodChart()">
+            <option value="">请选择患者</option>
+          </select>
+        </div>
+        <div class="card-body">
+          <div id="bloodChart" class="chart-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 随访执行&事件记录 -->
+    <div class="tab-pane fade" id="followExecute">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-check-square-o"></i>随访执行与健康事件录入</div>
+            <div class="card-body">
+              <form id="followExecuteForm" class="row g-3">
+                <div class="col-12">
+                  <label>待随访患者</label>
+                  <select id="executePatientSelect" class="form-select" onchange="loadPatientFollowType()" required>
+                    <option value="">请选择患者</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label>本次执行随访类型</label>
+                  <select id="executeFollowType" class="form-select" required>
+                    <option value="">请先选择患者</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label>本次健康事件记录</label>
+                  <textarea id="healthEvent" class="form-control" rows="4"
+                            placeholder="例：血糖监测正常、按时服药、血糖异常偏高、完成复诊、饮食指导落实等" required></textarea>
+                </div>
+                <div class="col-12 text-center">
+                  <button type="button" class="btn btn-success w-100" onclick="submitFollowExecute()">
+                    <i class="fa fa-check"></i> 记录事件并完成本次随访
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="fa fa-history"></i>患者健康事件时间轴</span>
+              <select id="timelinePatientSelect" class="form-select w-50" onchange="loadHealthTimeline()">
+                <option value="">请选择患者</option>
+              </select>
+            </div>
+            <div class="card-body">
+              <div id="timelineChart" class="chart-box"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const roleMap = { admin: "管理员", doctor: "医生", nurse: "护士", patient: "患者" };
+  let bloodChart;
+  let timelineChart;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('currentRole').innerText = roleMap[localStorage.getItem('userRole') || 'nurse'];
+    loadNursePatientList();
+    loadNursePatientSelect();
+    initNurseCharts();
+  });
+
+  function showTime() {
+    document.getElementById('current-time').innerHTML = '<i class="fa fa-clock-o me-1"></i>' + new Date().toLocaleString('zh-CN');
+  }
+  setInterval(showTime, 1000);
+  showTime();
+
+  // ====================== 患者列表 ======================
+  function loadNursePatientList() {
+    const keyword = document.getElementById("searchPatient").value.trim();
+    let url = keyword ? `/api/patient/search?name=${keyword}` : "/api/patient/list";
+    fetch(url)
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              let html = "";
+              if (list.length === 0) html = `<tr><td colspan='6'>暂无患者数据</td></tr>`;
+              else {
+                list.forEach(p => {
+                  let risk = p.age > 65 ? "高危" : p.age > 50 ? "中危" : "低危";
+                  let riskBadge = risk === '低危' ? '<span class="badge bg-success">低危</span>' :
+                          risk === '中危' ? '<span class="badge bg-warning">中危</span>' : '<span class="badge bg-danger">高危</span>';
+                  html += `<tr><td>${p.patientId}</td><td>${p.name}</td><td>${p.gender}</td><td>${p.age}</td><td>${p.dept}</td><td>${riskBadge}</td></tr>`;
+                });
+              }
+              document.getElementById("nursePatientTableBody").innerHTML = html;
+            });
+  }
+
+  // 加载患者到所有下拉框
+  function loadNursePatientSelect() {
+    fetch("/api/patient/list")
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              const bloodSel = document.getElementById("nursePatientSelect");
+              const historySel = document.getElementById("historyPatientSelect");
+              const executeSel = document.getElementById("executePatientSelect");
+              const timelineSel = document.getElementById("timelinePatientSelect");
+
+              list.forEach(p => {
+                const opt = `<option value="${p.patientId}" data-name="${p.name}">${p.name}</option>`;
+                bloodSel.innerHTML += opt;
+                historySel.innerHTML += opt;
+                executeSel.innerHTML += opt;
+                timelineSel.innerHTML += opt;
+              });
+            });
+  }
+
+  // ====================== 血糖录入 ======================
+  function saveNurseBlood() {
+    const sel = document.getElementById("nursePatientSelect");
+    const patientId = sel.value;
+    const patientName = sel.options[sel.selectedIndex].dataset.name;
+    const blood = {
+      patientId, patientName,
+      collectTime: document.getElementById("collectTime").value,
+      timeType: document.getElementById("timeType").value,
+      sugarVal: document.getElementById("sugarVal").value,
+      heartRate: document.getElementById("heartRate").value,
+      bloodPressure: document.getElementById("bloodPressure").value,
+      symptom: document.getElementById("symptom").value
+    };
+    if (!blood.patientId || !blood.collectTime || !blood.sugarVal) { alert("请填写必填项！"); return; }
+    fetch("/api/blood/save", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(blood)
+    }).then(res => res.json()).then(r => {
+      if (r.code === 200) {
+        alert("✅ 血糖数据保存成功！");
+        document.getElementById("bloodForm").reset();
+        loadNurseBloodChart();
+      } else alert("❌ 保存失败：" + r.msg);
+    });
+  }
+
+  // ====================== 血糖历史 · 趋势图 ======================
+  function initNurseCharts() {
+    setTimeout(() => {
+      bloodChart = echarts.init(document.getElementById('bloodChart'));
+      timelineChart = echarts.init(document.getElementById('timelineChart'));
+      window.addEventListener('resize', () => { bloodChart?.resize(); timelineChart?.resize(); });
+    }, 200);
+  }
+
+  function formatDateTime(str) { return str ? str.substring(0, 16) : ''; }
+
+  function loadNurseBloodChart() {
+    const patientId = document.getElementById("historyPatientSelect").value;
+    if (!patientId) { bloodChart.clear(); return; }
+    fetch(`/api/blood/trend?patientId=${patientId}`)
+            .then(res => res.json()).then(r => {
+      const list = r.data || [];
+      const xData = [], emptyData = [], afterData = [];
+      list.forEach(item => {
+        xData.push(formatDateTime(item.collectTime));
+        if (item.timeType === "空腹") { emptyData.push(item.sugarVal); afterData.push(null); }
+        else if (item.timeType === "餐后2h") { afterData.push(item.sugarVal); emptyData.push(null); }
+        else { emptyData.push(null); afterData.push(null); }
+      });
+      const option = {
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+        xAxis: { type: 'category', data: xData, axisLabel: { rotate: 30 } },
+        yAxis: { type: 'value', name: '血糖(mmol/L)', min: 3, max: 15 },
+        legend: { data: ['空腹血糖', '餐后2h血糖'], top: 0 },
+        series: [
+          { name: '空腹血糖', data: emptyData, type: 'line', smooth: true, itemStyle: { color: '#00B42A' }, lineStyle: { width: 2 } },
+          { name: '餐后2h血糖', data: afterData, type: 'line', smooth: true, itemStyle: { color: '#FF7D00' }, lineStyle: { width: 2 } }
+        ]
+      };
+      bloodChart.setOption(option, true);
+      bloodChart.resize();
+    });
+  }
+
+  // ====================== 随访执行（对接后端，过期任务自动过滤） ======================
+  function refreshFollowCharts() {
+    setTimeout(() => {
+      timelineChart?.resize();
+      loadHealthTimeline();
+    }, 200);
+  }
+
+  // 获取今天日期
+  function getTodayStr() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+  }
+
+  // 加载患者可执行随访（后端已过滤过期）
+  function loadPatientFollowType() {
+    const patientId = document.getElementById("executePatientSelect").value;
+    const typeSel = document.getElementById("executeFollowType");
+    if (!patientId) {
+      typeSel.innerHTML = `<option value="">请先选择患者</option>`;
+      return;
+    }
+    typeSel.innerHTML = `<option value="">加载中...</option>`;
+    fetch(`/api/follow/list?patientId=${patientId}`)
+            .then(res => res.json())
+            .then(r => {
+              const list = r.data || [];
+              if (list.length === 0) {
+                typeSel.innerHTML = `<option value="">该患者暂无待执行随访</option>`;
+                return;
+              }
+              let optHtml = `<option value="">请选择本次执行随访</option>`;
+              list.forEach(item => {
+                optHtml += `<option value="${item.id}" data-type="${item.followType}">${item.followType}（${item.followDate}）</option>`;
+              });
+              typeSel.innerHTML = optHtml;
+            });
+  }
+
+  function submitFollowExecute() {
+    const followSel = document.getElementById("executeFollowType");
+    const followId = followSel.value;
+    const patientSel = document.getElementById("executePatientSelect");
+    const patientId = patientSel.value;
+    const patientName = patientSel.options[patientSel.selectedIndex].dataset.name;
+    const followType = followSel.options[followSel.selectedIndex]?.dataset.type;
+    const healthEvent = document.getElementById("healthEvent").value.trim();
+
+    if (!followId || !healthEvent || !followType) {
+      alert("请选择随访并填写健康事件！");
+      return;
+    }
+
+    fetch("/api/follow/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        followId: Number(followId), // 强制转数字，后端Long接收
+        patientId: patientId,
+        patientName: patientName,
+        followType: followType,
+        healthEvent: healthEvent
+      })
+    }).then(res => res.json())
+            .then(r => {
+              if (r.code === 200) {
+                alert("✅ 随访执行完成，健康事件已记录！");
+                document.getElementById("followExecuteForm").reset();
+                loadHealthTimeline();
+                loadPatientFollowType();
+              } else {
+                alert("❌ 操作失败：" + (r.msg || "未知错误"));
+              }
+            })
+            .catch(err => {
+              alert("❌ 网络/接口异常：" + err);
+            });
+  }
+
+  // 健康时间轴
+  function loadHealthTimeline() {
+    const patientId = document.getElementById("timelinePatientSelect").value;
+    if (!patientId) { timelineChart.clear(); return; }
+
+    Promise.all([
+      fetch(`/api/follow/list?patientId=${patientId}`).then(res => res.json()),
+      fetch(`/api/blood/trend?patientId=${patientId}`).then(res => res.json())
+    ]).then(([followRes, bloodRes]) => {
+      const followList = followRes.data || [];
+      const bloodList = bloodRes.data || [];
+      const allData = [];
+
+      followList.forEach(item => {
+        allData.push({
+          time: item.followDate,
+          type: "随访",
+          content: item.followType + "：" + (item.followContent || '无内容')
+        });
+      });
+
+      bloodList.forEach(item => {
+        allData.push({
+          time: formatDateTime(item.collectTime),
+          type: "血糖",
+          content: item.timeType + "：" + item.sugarVal + "mmol/L"
+        });
+      });
+
+      allData.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: params => `${params.data[0]}<br/>${params.data[1]}<br/>${params.data[2]}`
+        },
+        grid: { left: '5%', right: '5%', bottom: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: allData.map(d => d.time),
+          axisLabel: { rotate: 30 }
+        },
+        yAxis: {
+          type: 'category',
+          data: ["血糖", "随访"]
+        },
+        series: [{
+          type: 'scatter',
+          data: allData.map(d => [d.time, d.type, d.content]),
+          symbolSize: 30,
+          itemStyle: {
+            color: params => params.data[1] === "随访" ? "#00B42A" : "#FF7D00"
+          }
+        }]
+      };
+      timelineChart.setOption(option, true);
+      timelineChart.resize();
+    });
+  }
+
+  // 退出登录
+  function logout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('userRole');
+      window.location.href = "login.html";
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>患者个人中心 - 血糖监测管理系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #f4f7fa;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+
+    .top-header {
+      background: linear-gradient(90deg, #FF7D00, #FF9A2E);
+      color: #fff;
+      padding: 16px 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      background-color: #FF7D00;
+      color: #fff;
+      font-weight: 600;
+      padding: 14px 18px;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #FF7D00;
+      color: #fff;
+    }
+
+    .nav-pills .nav-link {
+      border-radius: 8px;
+      margin-right: 8px;
+      padding: 10px 18px;
+      font-weight: 500;
+    }
+
+    .chart-box {
+      width: 100%;
+      height: 320px;
+    }
+
+    .stat-card {
+      border-radius: 10px;
+      padding: 20px;
+      color: #fff;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+<div class="top-header d-flex justify-content-between align-items-center">
+  <div class="header-title"><i class="fa fa-droplet me-2"></i>血糖监测管理系统 · 患者个人中心</div>
+  <div><span class="me-3">当前角色：<span id="showRole">患者</span></span><span id="current-time"></span></div>
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      <i class="fa fa-cog me-1"></i>设置
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="login.html"><i class="fa fa-sign-out me-1"></i>退出登录</a></li>
+    </ul>
+  </div>
+</div>
+
+<div class="container-fluid px-4 py-4">
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#info">我的信息</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#blood">我的血糖</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#treat">诊疗方案</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#report">血糖上报</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#myFollow">我的随访&健康时间轴</button></li>
+  </ul>
+</div>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="info">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-user me-2"></i>个人信息</div>
+      <div class="card-body">
+        <div class="row" id="userInfo"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="blood">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-line-chart me-2"></i>我的血糖</div>
+      <div class="card-body">
+        <div id="bloodChart" class="chart-box"></div>
+        <div class="row mt-4 g-4">
+          <div class="col-md-3"><div class="stat-card bg-primary"><h5>平均空腹</h5><h3 id="avgKongfu">0</h3></div></div>
+          <div class="col-md-3"><div class="stat-card bg-danger"><h5>平均餐后</h5><h3 id="avgCanhou">0</h3></div></div>
+          <div class="col-md-3"><div class="stat-card bg-success"><h5>正常次数</h5><h3 id="normalCount">0</h3></div></div>
+          <div class="col-md-3"><div class="stat-card bg-warning"><h5>异常次数</h5><h3 id="abnormalCount">0</h3></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="treat">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-stethoscope me-2"></i>我的控糖方案</div>
+      <div class="card-body">
+        <table class="table table-bordered text-center mb-0">
+          <thead><tr class="table-light"><th>诊断</th><th>控糖方案</th><th>监测频率</th><th>主治医生</th><th>方案备注</th></tr></thead>
+          <tbody id="treatBody"><tr><td colspan="5" class="text-muted">正在加载诊疗方案...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="report">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-pencil me-2"></i>自主血糖上报</div>
+      <div class="card-body">
+        <form class="row g-3" id="reportForm">
+          <div class="col-md-4">
+            <label>测量类型</label>
+            <select class="form-select" id="timeType">
+              <option>空腹</option>
+              <option>餐后2h</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label>时间</label>
+            <input type="datetime-local" class="form-control" id="collectTime">
+          </div>
+          <div class="col-md-4">
+            <label>血糖值</label>
+            <input type="number" step="0.01" class="form-control" id="sugarVal">
+          </div>
+          <div class="col-12">
+            <label>身体状况</label>
+            <textarea class="form-control" rows="3" id="symptom"></textarea>
+          </div>
+          <div class="col-12 text-center">
+            <button type="button" class="btn btn-warning px-5" onclick="submitReport()">提交上报</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="myFollow">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <i class="fa fa-calendar-check-o me-2"></i>我的随访计划
+          </div>
+          <div class="card-body">
+            <h5 class="text-warning mb-3"><i class="fa fa-stethoscope me-1"></i>医生专属制定</h5>
+
+            <div class="list-group list-group-flush">
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div><i class="fa fa-check-circle text-success me-2"></i>每日血糖监测</div>
+                <span class="badge bg-success rounded-pill">已开启</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div><i class="fa fa-pill text-primary me-2"></i>用药提醒</div>
+                <span class="badge bg-primary rounded-pill">每日</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div><i class="fa fa-clock-o text-info me-2"></i>定期复诊</div>
+                <span class="badge bg-info rounded-pill">每周一次</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div><i class="fa fa-phone text-warning me-2"></i>医生电话随访</div>
+                <span class="badge bg-warning rounded-pill">每月一次</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div><i class="fa fa-cutlery text-danger me-2"></i>饮食指导</div>
+                <span class="badge bg-danger rounded-pill">持续进行</span>
+              </div>
+            </div>
+
+            <div class="mt-4 p-3 bg-light rounded">
+              <small class="text-muted">
+                <i class="fa fa-info-circle me-1"></i>
+                随访计划由内分泌科医生根据您的血糖情况自动制定，
+                <br>请严格按照计划执行，有助于血糖平稳控制。
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <i class="fa fa-line-chart me-2"></i>血糖健康趋势图
+          </div>
+          <div class="card-body">
+            <div id="healthTrendChart" class="chart-box" style="height:350px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // 时间显示
+  function showTime() {
+    document.getElementById('current-time').innerText = new Date().toLocaleString();
+  }
+  setInterval(showTime, 1000);
+  showTime();
+
+  let currentUser = null;
+  let bloodChart = null;
+
+  // 获取当前登录用户
+  fetch("/api/current")
+          .then(res => res.json())
+          .then(user => {
+            if (!user) { location.href = "login.html"; return; }
+            currentUser = user;
+            document.getElementById("userInfo").innerHTML = `
+        <div class="col-md-6">
+          <p><strong>ID：</strong>${user.id}</p>
+          <p><strong>姓名：</strong>${user.name}</p>
+          <p><strong>账号：</strong>${user.username}</p>
+          <p><strong>角色：</strong>患者</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>科室：</strong>内分泌科</p>
+          <p><strong>状态：</strong>血糖监测中</p>
+        </div>
+      `;
+            loadMyTreat();
+            // 延迟加载血糖，确保DOM就绪
+            setTimeout(loadMyBlood, 500);
+          });
+
+  // 统一初始化：只写一次window.onload，解决覆盖问题
+  window.addEventListener('load', function () {
+    // 初始化血糖图表
+    bloodChart = echarts.init(document.getElementById('bloodChart'));
+    bloodChart.setOption({
+      title: { text: '我的血糖趋势', left: 'center', top: 10 },
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['空腹', '餐后2h'], top: 40, left: 'center' },
+      grid: { left: 10, right: 10, top: 70, bottom: 40, containLabel: true },
+      xAxis: { data: [], axisLabel: { interval: 0, rotate: 40, fontSize: 10 } },
+      yAxis: { name: 'mmol/L', min: 0, max: 22 },
+      series: [
+        { name: '空腹', type: 'line', data: [], smooth: true },
+        { name: '餐后2h', type: 'line', data: [], smooth: true }
+      ]
+    });
+
+    // 健康时间轴
+    const timeline = echarts.init(document.getElementById('timelineChart'));
+    timeline.setOption({
+      xAxis: { data: ['入院', '监测', '用药', '随访', '异常', '复诊'] },
+      yAxis: {},
+      series: [{ data: [1, 3, 2, 4, 2, 5], type: 'line' }]
+    });
+
+    // 窗口大小自适应
+    window.addEventListener('resize', () => {
+      bloodChart.resize();
+      timeline.resize();
+    });
+  });
+
+  // 加载血糖数据
+  function loadMyBlood() {
+    fetch("/api/blood/list")
+            .then(res => res.json())
+            .then(res => {
+              console.log("血糖接口返回：", res);
+              const list = res.data || [];
+              if (list.length === 0) {
+                console.log("暂无血糖数据，请检查后端查询条件");
+                return;
+              }
+              renderBloodChart(list);
+              renderStats(list);
+              renderHealthTrend(list); // 新增：同步渲染健康趋势图
+            })
+            .catch(err => console.error("血糖数据加载失败：", err));
+  }
+
+  // 渲染血糖图表（✅ 全部改为驼峰字段，和后端一致）
+  function renderBloodChart(list) {
+    const xData = [], dataKong = [], dataCan = [];
+    list.forEach(item => {
+      // 后端返回驼峰，必须用驼峰！
+      const time = item.collectTime || "";
+      const val = Number(item.sugarVal);
+      const type = item.timeType;
+
+      const showTime = time ? time.replace("T", " ").substring(5, 16) : "";
+      xData.push(showTime);
+
+      if (type === "空腹") {
+        dataKong.push(val);
+        dataCan.push(null);
+      } else {
+        dataCan.push(val);
+        dataKong.push(null);
+      }
+    });
+
+    bloodChart.setOption({
+      xAxis: { data: xData },
+      series: [
+        { name: "空腹", data: dataKong },
+        { name: "餐后2h", data: dataCan }
+      ]
+    });
+  }
+
+
+  // 渲染统计卡片（✅ 同样改为驼峰）
+  function renderStats(list) {
+    let sumKong = 0, sumCan = 0, cntKong = 0, cntCan = 0;
+    let normal = 0, abnormal = 0;
+    list.forEach(item => {
+      const v = Number(item.sugarVal);
+      if (item.timeType === "空腹") {
+        sumKong += v; cntKong++;
+        normal += v < 6.1 ? 1 : 0;
+        abnormal += v >= 6.1 ? 1 : 0;
+      } else {
+        sumCan += v; cntCan++;
+        normal += v < 7.8 ? 1 : 0;
+        abnormal += v >= 7.8 ? 1 : 0;
+      }
+    });
+    document.getElementById("avgKongfu").innerText = cntKong ? (sumKong / cntKong).toFixed(1) : 0;
+    document.getElementById("avgCanhou").innerText = cntCan ? (sumCan / cntCan).toFixed(1) : 0;
+    document.getElementById("normalCount").innerText = normal;
+    document.getElementById("abnormalCount").innerText = abnormal;
+  }
+
+  function submitReport() {
+    if (!currentUser) { alert("请先登录！"); return; }
+    const timeType = document.getElementById("timeType").value;
+    const collectTime = document.getElementById("collectTime").value;
+    const sugarVal = document.getElementById("sugarVal").value;
+    const symptom = document.getElementById("symptom").value;
+    if (!collectTime || !sugarVal) { alert("请填写完整信息！"); return; }
+
+    fetch("/api/blood/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // 补充患者ID、姓名（后端必须）
+        patientId: currentUser.username,
+        patientName: currentUser.name,
+        // 改为驼峰，匹配后端实体类
+        timeType: timeType,
+        sugarVal: sugarVal,
+        collectTime: collectTime,
+        symptom: symptom
+      })
+    }).then(res => res.json())
+            .then(res => {
+              // 兼容后端返回格式
+              if (res.code === 200 || res === "success") {
+                alert("上报成功！");
+                document.getElementById("reportForm").reset();
+                loadMyBlood();
+              } else {
+                alert("失败：" + (res.msg || res));
+              }
+            }).catch(() => {
+      alert("提交失败，请检查网络或后端接口");
+    });
+  }
+
+  // 加载诊疗方案
+  function loadMyTreat() {
+    fetch("/api/patient/treat/my")
+            .then(res => res.json())
+            .then(res => {
+              const data = res.data;
+              const tbody = document.getElementById("treatBody");
+              if (!data) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-muted">暂无诊疗方案</td></tr>`;
+                return;
+              }
+              tbody.innerHTML = `
+          <tr>
+            <td>${data.diagnosis || '—'}</td>
+            <td>${data.treatPlan || '—'}</td>
+            <td>${data.monitorFreq || '—'}</td>
+            <td>${data.doctorName || '—'}</td>
+            <td>无</td>
+          </tr>
+        `;
+            });
+  }
+
+  // 标签切换刷新图表
+  document.querySelector('[data-bs-target="#blood"]').addEventListener('click', () => {
+    setTimeout(() => bloodChart.resize(), 200);
+  });
+  document.querySelector('[data-bs-target="#treat"]').addEventListener('click', loadMyTreat);
+
+  // 渲染血糖健康趋势图（替换原健康时间轴）
+  function renderHealthTrend(list) {
+    const healthChart = echarts.init(document.getElementById('healthTrendChart'));
+    const xData = [], fastingData = [], afterData = [], healthScore = [];
+
+    list.forEach(item => {
+      const time = item.collectTime ? item.collectTime.replace("T", " ").substring(5,16) : "";
+      xData.push(time);
+      const val = Number(item.sugarVal);
+
+      // 空腹血糖：正常<6.1，餐后<7.8，计算健康分（0-10分）
+      let score = 0;
+      if(item.timeType === "空腹"){
+        fastingData.push(val);
+        afterData.push(null);
+        score = val < 6.1 ? 10 : val <7 ? 6 : 3;
+      }else{
+        afterData.push(val);
+        fastingData.push(null);
+        score = val <7.8 ?10 : val <10 ?6 :3;
+      }
+      healthScore.push(score);
+    });
+
+    healthChart.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['空腹血糖','餐后血糖','健康评分'], top:10 },
+      grid: { left:10, right:10, top:50, bottom:40, containLabel:true },
+      xAxis: { data:xData, axisLabel:{rotate:40, fontSize:10} },
+      yAxis: [
+        { name:'血糖(mmol/L)', min:0, max:22 },
+        { name:'健康评分', min:0, max:10, position:'right' }
+      ],
+      series: [
+        { name:'空腹血糖', type:'line', data:fastingData, smooth:true, yAxisIndex:0 },
+        { name:'餐后血糖', type:'line', data:afterData, smooth:true, yAxisIndex:0 },
+        { name:'健康评分', type:'line', data:healthScore, smooth:true, yAxisIndex:1, areaStyle:{opacity:0.2} }
+      ]
+    });
+
+    // 窗口自适应
+    window.addEventListener('resize', ()=> healthChart.resize());
+  }
+  // 标签切换时 → 自动重绘图表
+  document.querySelector('[data-bs-target="#blood"]').addEventListener('click', () => {
+    setTimeout(() => {
+      if (bloodChart) bloodChart.resize();
+    }, 200);
+  });
+
+  // 新增：切换到【我的随访】时，自动重绘健康趋势图
+  document.querySelector('[data-bs-target="#myFollow"]').addEventListener('click', () => {
+    setTimeout(() => {
+      const chart1 = echarts.getInstanceByDom(document.getElementById('bloodChart'));
+      const chart2 = echarts.getInstanceByDom(document.getElementById('healthTrendChart'));
+      if (chart1) chart1.resize();
+      if (chart2) chart2.resize();
+    }, 200);
+  });
+
+  // 页面加载完成后统一初始化
+  window.addEventListener('load', function () {
+    setTimeout(() => {
+      const allCharts = document.querySelectorAll('.chart-box');
+      allCharts.forEach(div => {
+        const chart = echarts.getInstanceByDom(div);
+        if (chart) chart.resize();
+      });
+    }, 500);
+  });
+</script>
+</body>
+</html>
