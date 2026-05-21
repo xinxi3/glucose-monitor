@@ -5,6 +5,14 @@
 系统界面简洁美观，功能完整，图表联动真实数据，适合课程设计、毕业设计及实际项目使用。
 
 ---
+## 界面展示
+<img width="1276" height="701" alt="4a4c054225847bfd01e33154aa4e3ee8" src="https://github.com/user-attachments/assets/70a33817-2537-449c-93d1-bd2b8ca0a708" />
+<img width="1279" height="704" alt="f119bde14068b5d21278b57e8e312435" src="https://github.com/user-attachments/assets/fdf9772a-cbbb-44b5-89a5-2f3487455f38" />
+<img width="1276" height="702" alt="b9b383317e07eb9e186ea5dcf3b41b66" src="https://github.com/user-attachments/assets/fb5ea208-9c30-489c-9296-6c615687f6aa" />
+<img width="1277" height="707" alt="19663c0b2913913385bfdc38194dd976" src="https://github.com/user-attachments/assets/60a02a1f-82a0-43ca-a5da-b7cc1b70f5b7" />
+<img width="1277" height="704" alt="4073149eae7393467925a6d928525e1e" src="https://github.com/user-attachments/assets/2aa4f2e9-8d36-456b-aa33-50ab16b1ed01" />
+<img width="1276" height="702" alt="b9b383317e07eb9e186ea5dcf3b41b66" src="https://github.com/user-attachments/assets/83d91824-12d0-4a9f-865a-0419036647f7" />
+<img width="1277" height="706" alt="df196393764892516eda04148d400a52" src="https://github.com/user-attachments/assets/b41a8575-977e-48f5-bcc4-2410ffcbfff6" />
 
 ## 功能模块
 ### 1. 用户登录与身份验证
